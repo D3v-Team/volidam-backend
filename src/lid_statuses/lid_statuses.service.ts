@@ -36,7 +36,7 @@ export class LidStatusService {
       );
     }
 
-    return this.sequelize.transaction(async (t) => {
+    const created = await this.sequelize.transaction(async (t) => {
       if (dto.is_default) {
         await this.lidStatusModel.update(
           { is_default: false },
@@ -67,8 +67,10 @@ export class LidStatusService {
         { transaction: t },
       );
 
-      return this.findOne(status.id);
+      return status;
     });
+
+    return this.findOne(created.id);
   }
 
   async findAll(role?: UserRole): Promise<LidStatus[]> {
@@ -98,7 +100,7 @@ export class LidStatusService {
   async update(id: string, dto: UpdateLidStatusDto): Promise<LidStatus> {
     const status = await this.findOne(id);
 
-    return this.sequelize.transaction(async (t) => {
+    await this.sequelize.transaction(async (t) => {
       if (dto.name) {
         const normalizedName = this.normalizeName(dto.name);
         if (normalizedName !== status.name) {
@@ -140,9 +142,9 @@ export class LidStatusService {
           { transaction: t },
         );
       }
-
-      return this.findOne(id);
     });
+
+    return this.findOne(id);
   }
 
   async reorder(dto: ReorderLidStatusesDto): Promise<{ message: string }> {
