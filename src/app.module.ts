@@ -21,6 +21,7 @@ import { LidColumn } from './lid_columns/models/lid_column.model';
 
 import { WebsocketModule } from './websocket/websocket.module';
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
+import { StatisticModule } from './statistic/statistic.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
     LidsModule,
     LidStatusModule,
     LidColumnModule,
+    StatisticModule,
   ],
   controllers: [],
   providers: [

@@ -3,17 +3,24 @@ import {
   Controller,
   DefaultValuePipe,
   Delete,
+  FileTypeValidator,
   Get,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Put,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiQuery,
   ApiTags,
@@ -30,6 +37,8 @@ import { UserRole } from '../common/enums/user-role.enum';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto } from './dto/update-lid.dto';
 import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 @ApiTags('Lids')
 @ApiBearerAuth()
@@ -43,6 +52,37 @@ export class LidsController {
   @ApiOperation({ summary: 'Yangi lid (faqat fio + telefon_raqam)' })
   create(@Body() dto: CreateLidDto, @CurrentUser() user: AuthUser) {
     return this.lidsService.create(dto, user);
+  }
+
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Post('import/excel')
+  @ApiOperation({ summary: 'Excel dan lidlarni import qilish' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  importExcel(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({
+            fileType:
+              /application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|application\/vnd.ms-excel/,
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.lidsService.importFromExcel(file.buffer, user);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)

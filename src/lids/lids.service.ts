@@ -18,6 +18,8 @@ import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { User } from '../user/models/user.model';
+import * as XLSX from 'xlsx';
+import { ImportResultDto } from './dto/import-lids.dto';
 
 export interface KanbanColumn {
   status: { id: string; name: string; color: string; order: number };
@@ -31,6 +33,10 @@ export interface PaginatedLids {
   limit: number;
   total_pages: number;
   items: Lid[];
+}
+
+interface ExcelRow {
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 @Injectable()
@@ -208,6 +214,88 @@ export class LidsService {
     }
     await lid.destroy();
     return { message: "Lid o'chirildi" };
+  }
+
+  async importFromExcel(
+    buffer: Buffer,
+    user: AuthUser,
+  ): Promise<ImportResultDto> {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<ExcelRow>(sheet);
+
+    if (!rows.length) {
+      throw new BadRequestException("Excel fayl bo'sh yoki noto'g'ri format");
+    }
+
+    const defaultStatus = await this.lidStatusService.getDefault();
+
+    const result: ImportResultDto = {
+      total: rows.length,
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+
+      const fio = this.extractField(row, ['fio', 'ism', 'name', 'full_name']);
+      const telefon = this.extractField(row, [
+        'telefon_raqam',
+        'telefon',
+        'phone',
+        'tel',
+        'number',
+      ]);
+
+      if (!fio) {
+        result.failed++;
+        result.errors.push({ row: rowNum, fio: '-', reason: 'fio topilmadi' });
+        continue;
+      }
+
+      if (!telefon) {
+        result.failed++;
+        result.errors.push({
+          row: rowNum,
+          fio,
+          reason: 'telefon_raqam topilmadi',
+        });
+        continue;
+      }
+
+      try {
+        await this.lidModel.create({
+          fio: fio.trim(),
+          telefon_raqam: telefon.trim(),
+          status_id: defaultStatus.id,
+          created_by: user.id,
+        });
+        result.success++;
+      } catch (e) {
+        result.failed++;
+        const reason = e instanceof Error ? e.message : 'Xatolik';
+        result.errors.push({ row: rowNum, fio, reason });
+      }
+    }
+
+    return result;
+  }
+
+  private extractField(row: ExcelRow, keys: string[]): string | null {
+    const rowKeys = Object.keys(row);
+    for (const key of keys) {
+      const found = rowKeys.find((k) => k.toLowerCase().trim() === key);
+      if (found !== undefined) {
+        const val = row[found];
+        if (val !== undefined && val !== null && val !== '') {
+          return String(val);
+        }
+      }
+    }
+    return null;
   }
 
   private async upsertValues(
