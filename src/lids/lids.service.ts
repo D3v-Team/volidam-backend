@@ -21,6 +21,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { User } from '../user/models/user.model';
 import * as XLSX from 'xlsx';
 import { ImportResultDto } from './dto/import-lids.dto';
+import { LidStatusLog } from './models/lid_status_log.model';
 
 export interface KanbanColumn {
   status: { id: string; name: string; color: string; order: number };
@@ -46,6 +47,7 @@ export class LidsService {
     @InjectModel(Lid) private lidModel: typeof Lid,
     @InjectModel(LidValue) private lidValueModel: typeof LidValue,
     @InjectModel(LidColumn) private lidColumnModel: typeof LidColumn,
+    @InjectModel(LidStatusLog) private lidStatusLogModel: typeof LidStatusLog,
     private readonly lidStatusService: LidStatusService,
     private readonly sequelize: Sequelize,
   ) {}
@@ -54,22 +56,42 @@ export class LidsService {
     { model: LidStatus },
     { model: LidValue, include: [LidColumn] },
     { model: User, as: 'creator', attributes: ['id', 'full_name'] },
-    { model: User, as: 'assignee', attributes: ['id', 'full_name'] }, // ← yangi
+    { model: User, as: 'assignee', attributes: ['id', 'full_name'] },
   ];
+
+  private async writeLog(
+    lid_id: string,
+    from_status_id: string | null,
+    to_status_id: string,
+    changed_by: string,
+    transaction?: Transaction,
+  ): Promise<void> {
+    await this.lidStatusLogModel.create(
+      { lid_id, from_status_id, to_status_id, changed_by },
+      { transaction },
+    );
+  }
 
   async create(dto: CreateLidDto, user: AuthUser): Promise<Lid> {
     const defaultStatus = await this.lidStatusService.getDefault();
 
-    const lid = await this.lidModel.create({
-      fio: dto.fio.trim(),
-      telefon_raqam: dto.telefon_raqam.trim(),
-      ...(dto.ota_ona_fio && { ota_ona_fio: dto.ota_ona_fio.trim() }),
-      ...(dto.assigned_id && { assigned_id: dto.assigned_id }),
-      status_id: defaultStatus.id,
-      created_by: user.id,
-    });
+    return this.sequelize.transaction(async (t) => {
+      const lid = await this.lidModel.create(
+        {
+          fio: dto.fio.trim(),
+          telefon_raqam: dto.telefon_raqam.trim(),
+          ...(dto.ota_ona_fio && { ota_ona_fio: dto.ota_ona_fio.trim() }),
+          ...(dto.assigned_id && { assigned_id: dto.assigned_id }),
+          status_id: defaultStatus.id,
+          created_by: user.id,
+        },
+        { transaction: t },
+      );
 
-    return this.findOne(lid.id, user);
+      await this.writeLog(lid.id, null, defaultStatus.id, user.id, t);
+
+      return this.findOne(lid.id, user);
+    });
   }
 
   async assignLids(
@@ -85,11 +107,7 @@ export class LidsService {
 
   async findAll(
     user: AuthUser,
-    options: {
-      assigned_id?: string;
-      limit: number;
-      page: number;
-    },
+    options: { assigned_id?: string; limit: number; page: number },
   ): Promise<{ columns: KanbanColumn[] } | PaginatedLids> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const page = Math.max(options.page ?? 1, 1);
@@ -215,8 +233,12 @@ export class LidsService {
       );
     }
 
-    await lid.update({ status_id: dto.status_id });
-    return this.findOne(id, user);
+    return this.sequelize.transaction(async (t) => {
+      const oldStatusId = lid.status_id ?? null;
+      await lid.update({ status_id: dto.status_id }, { transaction: t });
+      await this.writeLog(id, oldStatusId, dto.status_id, user.id, t);
+      return this.findOne(id, user);
+    });
   }
 
   async remove(id: string, user: AuthUser): Promise<{ message: string }> {
@@ -241,7 +263,6 @@ export class LidsService {
       throw new BadRequestException("Excel fayl bo'sh yoki noto'g'ri format");
     }
 
-    // status_id berilgan bo'lsa uni tekshiramiz, yo'qsa default olamiz
     let resolvedStatusId: string;
     if (statusId) {
       const canAccess = await this.lidStatusService.canRoleAccess(
@@ -296,11 +317,17 @@ export class LidsService {
       }
 
       try {
-        await this.lidModel.create({
-          fio: fio.trim(),
-          telefon_raqam: telefon.trim(),
-          status_id: resolvedStatusId,
-          created_by: user.id,
+        await this.sequelize.transaction(async (t) => {
+          const lid = await this.lidModel.create(
+            {
+              fio: fio.trim(),
+              telefon_raqam: telefon.trim(),
+              status_id: resolvedStatusId,
+              created_by: user.id,
+            },
+            { transaction: t },
+          );
+          await this.writeLog(lid.id, null, resolvedStatusId, user.id, t);
         });
         result.success++;
       } catch (e) {

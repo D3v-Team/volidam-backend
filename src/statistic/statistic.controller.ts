@@ -21,20 +21,66 @@ export class StatisticController {
 
   @Get()
   @ApiOperation({ summary: 'Barcha statistikalar (faqat super_admin)' })
-  @ApiQuery({ name: 'year', required: false, type: Number, example: 2024 })
-  getAllStats(@Query('year') year?: number) {
-    return this.statisticService.getAllStats(year);
+  @ApiQuery({ name: 'year', required: false, type: Number, example: 2026 })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    example: '2026-05-30',
+    description: 'YYYY-MM-DD. Berilmasa — bugun',
+  })
+  getAllStats(@Query('year') year?: number, @Query('date') date?: string) {
+    return this.statisticService.getAllStats(year, date);
   }
 
-  @Get('by-status')
-  @ApiOperation({ summary: "Har bir status bo'yicha lidlar soni" })
-  getLeadsByStatus() {
-    return this.statisticService.getLeadsByStatus();
+  @Get('by-date')
+  @ApiOperation({
+    summary: 'Berilgan sanada yaratilgan lidlarning hozirgi statusi',
+    description: 'date berilmasa — bugungi kun',
+  })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    type: String,
+    example: '2026-05-30',
+    description: 'YYYY-MM-DD',
+  })
+  getLeadsByDate(@Query('date') date?: string) {
+    const targetDate = date ?? new Date().toISOString().split('T')[0];
+    return this.statisticService.getLeadsByDate(targetDate);
+  }
+
+  @Get('by-range')
+  @ApiOperation({
+    summary: "Sana oralig'ida harakatlanган lidlarning oxirgi statusi",
+    description:
+      "startDate va endDate oralig'ida log yozilgan lidlarning " +
+      "o'sha range ichidagi eng oxirgi statusini guruhlaydi",
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    type: String,
+    example: '2026-05-01',
+    description: 'YYYY-MM-DD',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    type: String,
+    example: '2026-05-30',
+    description: 'YYYY-MM-DD',
+  })
+  getLeadsByDateRange(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.statisticService.getLeadsByDateRange(startDate, endDate);
   }
 
   @Get('monthly')
   @ApiOperation({ summary: "Oylik lidlar dinamikasi (yil bo'yicha)" })
-  @ApiQuery({ name: 'year', required: false, type: Number, example: 2024 })
+  @ApiQuery({ name: 'year', required: false, type: Number, example: 2026 })
   getMonthlyDynamics(@Query('year') year?: number) {
     return this.statisticService.getMonthlyDynamics(year);
   }
