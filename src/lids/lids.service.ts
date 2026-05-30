@@ -15,6 +15,7 @@ import { LidStatusService } from '../lid_statuses/lid_statuses.service';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto, LidValueInputDto } from './dto/update-lid.dto';
 import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
+import { AssignLidsDto } from './dto/assign-lids.dto';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { User } from '../user/models/user.model';
@@ -53,6 +54,7 @@ export class LidsService {
     { model: LidStatus },
     { model: LidValue, include: [LidColumn] },
     { model: User, as: 'creator', attributes: ['id', 'full_name'] },
+    { model: User, as: 'assignee', attributes: ['id', 'full_name'] }, // ← yangi
   ];
 
   async create(dto: CreateLidDto, user: AuthUser): Promise<Lid> {
@@ -61,6 +63,8 @@ export class LidsService {
     const lid = await this.lidModel.create({
       fio: dto.fio.trim(),
       telefon_raqam: dto.telefon_raqam.trim(),
+      ...(dto.ota_ona_fio && { ota_ona_fio: dto.ota_ona_fio.trim() }),
+      ...(dto.assigned_id && { assigned_id: dto.assigned_id }),
       status_id: defaultStatus.id,
       created_by: user.id,
     });
@@ -68,15 +72,30 @@ export class LidsService {
     return this.findOne(lid.id, user);
   }
 
+  async assignLids(
+    dto: AssignLidsDto,
+    // user: AuthUser,
+  ): Promise<{ updated: number }> {
+    const [updated] = await this.lidModel.update(
+      { assigned_id: dto.assigned_id },
+      { where: { id: { [Op.in]: dto.lid_ids } } },
+    );
+    return { updated };
+  }
+
   async findAll(
     user: AuthUser,
-    options: { status_id?: string; limit: number; page: number },
+    options: {
+      assigned_id?: string;
+      limit: number;
+      page: number;
+    },
   ): Promise<{ columns: KanbanColumn[] } | PaginatedLids> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const page = Math.max(options.page ?? 1, 1);
 
-    if (options.status_id) {
-      return this.findByStatus(user, options.status_id, page, limit);
+    if (options.assigned_id) {
+      return this.findByAssignee(user, options.assigned_id, page, limit);
     }
     return this.findKanban(user, limit);
   }
@@ -113,23 +132,15 @@ export class LidsService {
     return { columns };
   }
 
-  async findByStatus(
+  async findByAssignee(
     user: AuthUser,
-    statusId: string,
+    assignedId: string,
     page: number,
     limit: number,
   ): Promise<PaginatedLids> {
-    const canAccess = await this.lidStatusService.canRoleAccess(
-      statusId,
-      user.role,
-    );
-    if (!canAccess) {
-      throw new ForbiddenException("Bu statusni ko'rishga ruxsatingiz yo'q");
-    }
-
     const offset = (page - 1) * limit;
     const { rows, count } = await this.lidModel.findAndCountAll({
-      where: { status_id: statusId },
+      where: { assigned_id: assignedId },
       include: this.defaultInclude,
       limit,
       offset,
@@ -166,16 +177,17 @@ export class LidsService {
     const lid = await this.findOne(id, user);
 
     return this.sequelize.transaction(async (t) => {
-      if (dto.fio || dto.telefon_raqam) {
-        await lid.update(
-          {
-            ...(dto.fio && { fio: dto.fio.trim() }),
-            ...(dto.telefon_raqam && {
-              telefon_raqam: dto.telefon_raqam.trim(),
-            }),
-          },
-          { transaction: t },
-        );
+      const coreUpdate: Record<string, any> = {};
+      if (dto.fio) coreUpdate.fio = dto.fio.trim();
+      if (dto.telefon_raqam)
+        coreUpdate.telefon_raqam = dto.telefon_raqam.trim();
+      if (dto.ota_ona_fio !== undefined)
+        coreUpdate.ota_ona_fio = dto.ota_ona_fio?.trim() ?? null;
+      if (dto.assigned_id !== undefined)
+        coreUpdate.assigned_id = dto.assigned_id ?? null;
+
+      if (Object.keys(coreUpdate).length > 0) {
+        await lid.update(coreUpdate, { transaction: t });
       }
 
       if (dto.values && dto.values.length > 0) {
@@ -219,6 +231,7 @@ export class LidsService {
   async importFromExcel(
     buffer: Buffer,
     user: AuthUser,
+    statusId?: string,
   ): Promise<ImportResultDto> {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -228,7 +241,23 @@ export class LidsService {
       throw new BadRequestException("Excel fayl bo'sh yoki noto'g'ri format");
     }
 
-    const defaultStatus = await this.lidStatusService.getDefault();
+    // status_id berilgan bo'lsa uni tekshiramiz, yo'qsa default olamiz
+    let resolvedStatusId: string;
+    if (statusId) {
+      const canAccess = await this.lidStatusService.canRoleAccess(
+        statusId,
+        user.role,
+      );
+      if (!canAccess) {
+        throw new ForbiddenException(
+          "Siz bu statusga lid yarata olmaysiz (ruxsat yo'q)",
+        );
+      }
+      resolvedStatusId = statusId;
+    } else {
+      const defaultStatus = await this.lidStatusService.getDefault();
+      resolvedStatusId = defaultStatus.id;
+    }
 
     const result: ImportResultDto = {
       total: rows.length,
@@ -270,7 +299,7 @@ export class LidsService {
         await this.lidModel.create({
           fio: fio.trim(),
           telefon_raqam: telefon.trim(),
-          status_id: defaultStatus.id,
+          status_id: resolvedStatusId,
           created_by: user.id,
         });
         result.success++;

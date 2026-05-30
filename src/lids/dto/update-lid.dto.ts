@@ -35,10 +35,21 @@ export class UpdateLidDto {
   @Matches(/^\+?[0-9]{9,15}$/)
   telefon_raqam?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  ota_ona_fio?: string;
+
   @ApiPropertyOptional({
-    type: [LidValueInputDto],
-    description: 'Dinamik columnlar uchun qiymatlar (upsert)',
+    example: 'uuid-of-user',
+    description: 'Hodim UUID si',
   })
+  @IsOptional()
+  @IsUUID('4', { message: "assigned_id UUID bo'lishi kerak" })
+  assigned_id?: string;
+
+  @ApiPropertyOptional({ type: [LidValueInputDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

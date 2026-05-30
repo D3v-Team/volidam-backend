@@ -37,6 +37,7 @@ import { UserRole } from '../common/enums/user-role.enum';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto } from './dto/update-lid.dto';
 import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
+import { AssignLidsDto } from './dto/assign-lids.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
@@ -49,20 +50,41 @@ export class LidsController {
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
   @Post()
-  @ApiOperation({ summary: 'Yangi lid (faqat fio + telefon_raqam)' })
+  @ApiOperation({
+    summary:
+      'Yangi lid (fio + telefon_raqam; ota_ona_fio, assigned_id optional)',
+  })
   create(@Body() dto: CreateLidDto, @CurrentUser() user: AuthUser) {
     return this.lidsService.create(dto, user);
   }
 
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
+  @Put('assign')
+  @ApiOperation({
+    summary: 'Bir nechta lidga hodim biriktirish',
+    description: 'lid_ids massivi va assigned_id (User UUID) beriladi',
+  })
+  assignLids(@Body() dto: AssignLidsDto) {
+    return this.lidsService.assignLids(dto);
+  }
+
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @Post('import/excel')
-  @ApiOperation({ summary: 'Excel dan lidlarni import qilish' })
+  @ApiOperation({
+    summary: 'Excel dan lidlarni import qilish',
+    description: 'status_id berilmasa — default status ishlatiladi',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
+        status_id: {
+          type: 'string',
+          format: 'uuid',
+          description: "Lidlar bog'lanadigan status UUID (optional)",
+        },
       },
     },
   })
@@ -81,8 +103,9 @@ export class LidsController {
     )
     file: Express.Multer.File,
     @CurrentUser() user: AuthUser,
+    @Query('status_id') status_id?: string,
   ) {
-    return this.lidsService.importFromExcel(file.buffer, user);
+    return this.lidsService.importFromExcel(file.buffer, user, status_id);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
@@ -90,19 +113,19 @@ export class LidsController {
   @ApiOperation({
     summary: "Lidlar ro'yxati",
     description:
-      "status_id berilsa — paginatsiya. Bo'sh bo'lsa — har statusdan limit ta (kanban).",
+      "assigned_id berilsa — paginated list. Bo'sh bo'lsa — kanban (har statusdan limit ta).",
   })
-  @ApiQuery({ name: 'status_id', required: false, type: String })
+  @ApiQuery({ name: 'assigned_id', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   findAll(
     @CurrentUser() user: AuthUser,
-    @Query('status_id') status_id?: string,
+    @Query('assigned_id') assigned_id?: string,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
   ) {
     return this.lidsService.findAll(user, {
-      status_id,
+      assigned_id,
       limit: limit!,
       page: page!,
     });

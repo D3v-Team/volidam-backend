@@ -14,8 +14,10 @@ import { LidValue } from './lid_value.model';
 interface LidAttr {
   fio: string;
   telefon_raqam: string;
+  ota_ona_fio?: string;
   status_id?: string;
   created_by: string;
+  assigned_id?: string;
 }
 
 @Table({ tableName: 'lids' })
@@ -30,17 +32,17 @@ export class Lid extends Model<Lid, LidAttr> {
   @Column({ type: DataType.STRING, allowNull: false })
   declare fio: string;
 
-  @Column({ type: DataType.STRING(30), allowNull: false })
+  @Column({ type: DataType.STRING(30), allowNull: true })
   declare telefon_raqam: string;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  declare ota_ona_fio: string;
 
   @ForeignKey(() => LidStatus)
   @Column({ type: DataType.UUID, allowNull: true })
   declare status_id: string;
 
-  @BelongsTo(() => LidStatus, {
-    foreignKey: 'status_id',
-    onDelete: 'SET NULL',
-  })
+  @BelongsTo(() => LidStatus, { foreignKey: 'status_id', onDelete: 'SET NULL' })
   declare status: LidStatus;
 
   @ForeignKey(() => User)
@@ -49,6 +51,13 @@ export class Lid extends Model<Lid, LidAttr> {
 
   @BelongsTo(() => User, { foreignKey: 'created_by', onDelete: 'SET NULL' })
   declare creator: User;
+
+  @ForeignKey(() => User)
+  @Column({ type: DataType.UUID, allowNull: true })
+  declare assigned_id: string;
+
+  @BelongsTo(() => User, { foreignKey: 'assigned_id', onDelete: 'SET NULL' })
+  declare assignee: User;
 
   @HasMany(() => LidValue, { foreignKey: 'lid_id', onDelete: 'CASCADE' })
   declare values: LidValue[];
