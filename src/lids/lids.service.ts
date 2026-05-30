@@ -90,7 +90,7 @@ export class LidsService {
 
       await this.writeLog(lid.id, null, defaultStatus.id, user.id, t);
 
-      return this.findOne(lid.id, user);
+      return lid;
     });
   }
 
