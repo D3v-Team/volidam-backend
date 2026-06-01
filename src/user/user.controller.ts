@@ -39,7 +39,7 @@ export class UserController {
   }
 
   @ApiOperation({ summary: 'Get all users' })
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.OPERATOR, UserRole.ADMIN)
   @ApiQuery({ name: 'role', required: false })
   @Get('all')
   getAllUsers(@Query('role') role: string) {
