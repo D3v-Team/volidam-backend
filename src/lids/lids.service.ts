@@ -108,28 +108,32 @@ export class LidsService {
   async findAll(
     user: AuthUser,
     options: { assigned_id?: string; limit: number; page: number },
-  ): Promise<{ columns: KanbanColumn[] } | PaginatedLids> {
+  ): Promise<{ columns: any[] } | PaginatedLids> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const page = Math.max(options.page ?? 1, 1);
 
     if (options.assigned_id) {
       return this.findByAssignee(user, options.assigned_id, page, limit);
     }
-    return this.findKanban(user, limit);
+    return this.findKanban(user, page, limit);
   }
 
   async findKanban(
     user: AuthUser,
+    page: number,
     limit: number,
-  ): Promise<{ columns: KanbanColumn[] }> {
+  ): Promise<{ columns: any[] }> {
     const accessibleStatuses = await this.lidStatusService.findAll(user.role);
 
+    const offset = (page - 1) * limit;
+
     const columns = await Promise.all(
-      accessibleStatuses.map(async (status): Promise<KanbanColumn> => {
+      accessibleStatuses.map(async (status): Promise<any> => {
         const { rows, count } = await this.lidModel.findAndCountAll({
           where: { status_id: status.id },
           include: this.defaultInclude,
           limit,
+          offset,
           order: [['createdAt', 'DESC']],
           distinct: true,
         });
@@ -141,7 +145,12 @@ export class LidsService {
             color: status.color,
             order: status.order,
           },
-          total: count,
+          pagination: {
+            total: count,
+            page,
+            limit,
+            total_pages: Math.ceil(count / limit),
+          },
           items: rows,
         };
       }),
