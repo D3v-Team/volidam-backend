@@ -106,7 +106,7 @@ async function bootstrap(): Promise<void> {
       .setTitle('Volidam')
       .setDescription('Volidam API documentation')
       .setVersion('1.0.0')
-      .addServer('https://api.usdsoft.uz/volidam', 'Production')
+      .addServer('https://api.volidam.usdsoft.uz/volidam', 'Production')
       .addServer(`http://localhost:${port}`, 'Local')
       .addBearerAuth()
       .build();
