@@ -108,7 +108,7 @@ export class LidsService {
   async findAll(
     user: AuthUser,
     options: { assigned_id?: string; limit: number; page: number },
-  ): Promise<{ columns: any[] } | PaginatedLids> {
+  ): Promise<any> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const page = Math.max(options.page ?? 1, 1);
 
@@ -118,17 +118,13 @@ export class LidsService {
     return this.findKanban(user, page, limit);
   }
 
-  async findKanban(
-    user: AuthUser,
-    page: number,
-    limit: number,
-  ): Promise<{ columns: any[] }> {
+  async findKanban(user: AuthUser, page: number, limit: number): Promise<any> {
     const accessibleStatuses = await this.lidStatusService.findAll(user.role);
 
     const offset = (page - 1) * limit;
 
     const columns = await Promise.all(
-      accessibleStatuses.map(async (status): Promise<any> => {
+      accessibleStatuses.map(async (status) => {
         const { rows, count } = await this.lidModel.findAndCountAll({
           where: { status_id: status.id },
           include: this.defaultInclude,
@@ -139,24 +135,21 @@ export class LidsService {
         });
 
         return {
-          status: {
-            id: status.id,
-            name: status.name,
-            color: status.color,
-            order: status.order,
-          },
-          pagination: {
-            total: count,
-            page,
-            limit,
-            total_pages: Math.ceil(count / limit),
-          },
-          items: rows,
+          status_id: status.id,
+          status_name: status.name,
+          status_color: status.color,
+          status_order: status.order,
+          total: count,
+          data: rows,
         };
       }),
     );
 
-    return { columns };
+    return {
+      page,
+      limit,
+      columns,
+    };
   }
 
   async findByAssignee(
