@@ -10,7 +10,10 @@ import { Op, Transaction } from 'sequelize';
 import { Lid } from './models/lid.model';
 import { LidValue } from './models/lid_value.model';
 import { LidColumn } from '../lid_columns/models/lid_column.model';
-import { LidStatus } from '../lid_statuses/models/lid_status.model';
+import {
+  LidStatus,
+  LidStatusAttr,
+} from '../lid_statuses/models/lid_status.model';
 import { LidStatusService } from '../lid_statuses/lid_statuses.service';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto, LidValueInputDto } from './dto/update-lid.dto';
@@ -124,25 +127,31 @@ export class LidsService {
     const offset = (page - 1) * limit;
 
     const columns = await Promise.all(
-      accessibleStatuses.map(async (status) => {
-        const { rows, count } = await this.lidModel.findAndCountAll({
-          where: { status_id: status.id },
-          include: this.defaultInclude,
-          limit,
-          offset,
-          order: [['createdAt', 'DESC']],
-          distinct: true,
-        });
+      accessibleStatuses.map(
+        async (status: LidStatusAttr & { child_statuses_by_type: any }) => {
+          const currentStatusId = status.id || '';
 
-        return {
-          status_id: status.id,
-          status_name: status.name,
-          status_color: status.color,
-          status_order: status.order,
-          total: count,
-          data: rows,
-        };
-      }),
+          const { rows, count } = await this.lidModel.findAndCountAll({
+            where: { status_id: currentStatusId },
+            include: this.defaultInclude,
+            limit,
+            offset,
+            order: [['createdAt', 'DESC']],
+            distinct: true,
+          });
+
+          return {
+            status_id: currentStatusId,
+            status_name: status.name,
+            status_color: status.color || '#888780',
+            status_order: status.order || 0,
+            is_default: status.is_default || false,
+            child_statuses_by_type: status.child_statuses_by_type,
+            total: count,
+            data: rows,
+          };
+        },
+      ),
     );
 
     return {

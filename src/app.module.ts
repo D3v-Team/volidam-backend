@@ -22,6 +22,8 @@ import { LidColumn } from './lid_columns/models/lid_column.model';
 import { WebsocketModule } from './websocket/websocket.module';
 import { CustomThrottlerGuard } from './common/guards/custom-throttler.guard';
 import { StatisticModule } from './statistic/statistic.module';
+import { LidChildStatus } from './lid_child_statuses/models/lid_child_status.model';
+import { LidChildStatusModule } from './lid_child_statuses/lid_child_status.module';
 
 @Module({
   imports: [
@@ -47,7 +49,15 @@ import { StatisticModule } from './statistic/statistic.module';
         username: config.get<string>('POSTGRES_USER'),
         password: config.get<string>('POSTGRES_PASSWORD'),
         database: config.get<string>('POSTGRES_DB'),
-        models: [User, Lid, LidValue, LidColumn, LidStatus, LidStatusRole],
+        models: [
+          User,
+          Lid,
+          LidValue,
+          LidColumn,
+          LidStatus,
+          LidStatusRole,
+          LidChildStatus,
+        ],
         autoLoadModels: true,
         synchronize: true,
         logging: false,
@@ -66,6 +76,7 @@ import { StatisticModule } from './statistic/statistic.module';
     LidsModule,
     LidStatusModule,
     LidColumnModule,
+    LidChildStatusModule,
     StatisticModule,
   ],
   controllers: [],

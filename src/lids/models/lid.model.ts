@@ -10,6 +10,7 @@ import {
 import { User } from '../../user/models/user.model';
 import { LidStatus } from '../../lid_statuses/models/lid_status.model';
 import { LidValue } from './lid_value.model';
+import { LidChildStatus } from '../../lid_child_statuses/models/lid_child_status.model';
 
 interface LidAttr {
   fio: string;
@@ -18,6 +19,7 @@ interface LidAttr {
   status_id?: string;
   created_by: string;
   assigned_id?: string;
+  child_status_id?: string;
 }
 
 @Table({ tableName: 'lids' })
@@ -61,4 +63,14 @@ export class Lid extends Model<Lid, LidAttr> {
 
   @HasMany(() => LidValue, { foreignKey: 'lid_id', onDelete: 'CASCADE' })
   declare values: LidValue[];
+
+  @ForeignKey(() => LidChildStatus)
+  @Column({ type: DataType.UUID, allowNull: true })
+  declare child_status_id: string;
+
+  @BelongsTo(() => LidChildStatus, {
+    foreignKey: 'child_status_id',
+    onDelete: 'SET NULL',
+  })
+  declare child_status: LidChildStatus;
 }
