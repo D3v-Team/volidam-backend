@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import { Op } from 'sequelize';
-import { LidStatus } from './models/lid_status.model';
+import { LidStatus, LidStatusAttr } from './models/lid_status.model';
 import { LidStatusRole } from './models/lid_status_role.model';
 import {
   CreateLidStatusDto,
@@ -14,6 +14,7 @@ import {
 } from './dto/create-lid_status.dto';
 import { UpdateLidStatusDto } from './dto/update-lid_status.dto';
 import { UserRole } from '../common/enums/user-role.enum';
+import { LidChildStatus, Type } from '../lid_child_statuses/models/lid_child_status.model';
 
 @Injectable()
 export class LidStatusService {
@@ -73,19 +74,38 @@ export class LidStatusService {
     return this.findOne(created.id);
   }
 
-  async findAll(role?: UserRole): Promise<LidStatus[]> {
-    if (role && role !== UserRole.SUPER_ADMIN) {
-      const accessibleIds = await this.getAccessibleStatusIds(role);
-      return this.lidStatusModel.findAll({
-        where: { id: { [Op.in]: accessibleIds } },
-        include: [LidStatusRole],
-        order: [['order', 'ASC']],
-      });
-    }
-
-    return this.lidStatusModel.findAll({
-      include: [LidStatusRole],
+  async findAll(
+    role?: UserRole,
+  ): Promise<(LidStatusAttr & { child_statuses_by_type: any })[]> {
+    const statuses = await this.lidStatusModel.findAll({
+      where:
+        role && role !== UserRole.SUPER_ADMIN
+          ? { id: { [Op.in]: await this.getAccessibleStatusIds(role) } }
+          : undefined,
+      include: [LidStatusRole, LidChildStatus],
       order: [['order', 'ASC']],
+    });
+
+    return statuses.map((status) => {
+      const childStatuses = status.child_statuses ?? [];
+
+      const groupedByType = childStatuses.reduce(
+        (acc, child) => {
+          if (child.type === Type.TOQ || child.type === Type.JUFT) {
+            if (!acc[child.type]) acc[child.type] = [];
+            acc[child.type].push(child);
+          }
+          return acc;
+        },
+        { [Type.TOQ]: [], [Type.JUFT]: [] } as Record<Type, LidChildStatus[]>,
+      );
+
+      const { child_statuses, ...statusJson } = status.toJSON();
+
+      return {
+        ...statusJson,
+        child_statuses_by_type: groupedByType,
+      };
     });
   }
 

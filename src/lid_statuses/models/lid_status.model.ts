@@ -1,8 +1,10 @@
 import { Column, DataType, HasMany, Model, Table } from 'sequelize-typescript';
 import { LidStatusRole } from './lid_status_role.model';
 import { Lid } from '../../lids/models/lid.model';
+import { LidChildStatus } from '../../lid_child_statuses/models/lid_child_status.model';
 
-interface LidStatusAttr {
+export interface LidStatusAttr {
+  id?: string;
   name: string;
   color?: string;
   order?: number;
@@ -40,6 +42,12 @@ export class LidStatus extends Model<LidStatus, LidStatusAttr> {
     onDelete: 'CASCADE',
   })
   declare roles: LidStatusRole[];
+
+  @HasMany(() => LidChildStatus, {
+    foreignKey: 'status_id',
+    onDelete: 'CASCADE',
+  })
+  declare child_statuses: LidChildStatus[];
 
   @HasMany(() => Lid, { foreignKey: 'status_id' })
   declare lids: Lid[];

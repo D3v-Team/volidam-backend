@@ -66,3 +66,9 @@ export class ReorderLidStatusesDto {
   @IsNotEmpty()
   ids: string[];
 }
+export class ReorderLidChildStatusesDto {
+  @ApiProperty({ description: 'Yangi tartib', type: [String] })
+  @IsString({ each: true })
+  @IsNotEmpty()
+  ids: string[];
+}
