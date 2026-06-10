@@ -45,6 +45,12 @@ export class LidStatusController {
     return this.lidStatusService.findAll(user.role);
   }
 
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Get('keldi-keladi')
+  getKeldiKeladi() {
+    return this.lidStatusService.getKeldiKeladi();
+  }
+
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
   @Get(':id')
   findOne(@Param('id') id: string) {
