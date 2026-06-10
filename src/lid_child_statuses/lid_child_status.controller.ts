@@ -24,6 +24,7 @@ import { CreateLidChildStatusDto } from './dto/create_lid_child_status.dto';
 import { LidChildStatusService } from './lid_child_status.service';
 import { UpdateLidChildStatusDto } from './dto/update_lid_child_status.dto';
 import { ReorderLidChildStatusesDto } from '../lid_statuses/dto/create-lid_status.dto';
+import { Type } from './models/lid_child_status.model';
 
 @ApiTags('Lid Child Statuses')
 @ApiBearerAuth()

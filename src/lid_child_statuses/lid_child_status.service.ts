@@ -11,6 +11,7 @@ import { LidChildStatus, Type } from './models/lid_child_status.model';
 import { UpdateLidChildStatusDto } from './dto/update_lid_child_status.dto';
 import { ReorderLidChildStatusesDto } from '../lid_statuses/dto/create-lid_status.dto';
 import { Op, WhereOptions } from 'sequelize';
+import { Lid } from '../lids/models/lid.model';
 
 export interface PaginationResult {
   offset: number;
@@ -65,6 +66,7 @@ export class LidChildStatusService {
   constructor(
     @InjectModel(LidChildStatus) private repo: typeof LidChildStatus,
     @InjectModel(LidStatus) private lidStatusModel: typeof LidStatus,
+    @InjectModel(Lid) private lid: typeof Lid,
     private readonly sequelize: Sequelize,
   ) {}
 

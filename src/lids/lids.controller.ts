@@ -36,10 +36,14 @@ import {
 import { UserRole } from '../common/enums/user-role.enum';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto } from './dto/update-lid.dto';
-import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
+import {
+  ChangeLidChildStatusDto,
+  ChangeLidStatusDto,
+} from './dto/change-lid-status.dto';
 import { AssignLidsDto } from './dto/assign-lids.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { Type } from '../lid_child_statuses/models/lid_child_status.model';
 
 @ApiTags('Lids')
 @ApiBearerAuth()
@@ -131,6 +135,32 @@ export class LidsController {
     });
   }
 
+  @Get('filter')
+  @ApiOperation({ summary: 'Lidlarni filterli get qilish' })
+  @ApiQuery({ name: 'status_id', required: true, type: String })
+  @ApiQuery({ name: 'type', required: true, description: 'Toq yoki Juft' })
+  @ApiQuery({ name: 'assigned_id', required: false, type: String })
+  @ApiQuery({ name: 'searchTerm', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  getLidFilterGet(
+    @Query('status_id') status_id: string,
+    @Query('type') type: Type,
+    @Query('assigned_id') assigned_id?: string,
+    @Query('searchTerm') searchTerm?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.lidsService.getLidFilterGet(
+      status_id,
+      type,
+      assigned_id,
+      searchTerm,
+      page,
+      limit,
+    );
+  }
+
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
   @Get(':id')
   findOne(
@@ -160,6 +190,17 @@ export class LidsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.lidsService.changeStatus(id, dto, user);
+  }
+
+  @ApiOperation({ summary: "Child statusni o'zgartirish (role tekshiriladi)" })
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR)
+  @Put(':id/child-status')
+  changeChildStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ChangeLidChildStatusDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.lidsService.changeLidChildStatus(id, dto, user);
   }
 
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
