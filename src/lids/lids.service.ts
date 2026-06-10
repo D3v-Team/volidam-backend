@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize-typescript';
-import { Op, Transaction } from 'sequelize';
+import { Op, Transaction, WhereOptions } from 'sequelize';
 import { Lid } from './models/lid.model';
 import { LidValue } from './models/lid_value.model';
 import { LidColumn } from '../lid_columns/models/lid_column.model';
@@ -17,7 +17,10 @@ import {
 import { LidStatusService } from '../lid_statuses/lid_statuses.service';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto, LidValueInputDto } from './dto/update-lid.dto';
-import { ChangeLidStatusDto } from './dto/change-lid-status.dto';
+import {
+  ChangeLidChildStatusDto,
+  ChangeLidStatusDto,
+} from './dto/change-lid-status.dto';
 import { AssignLidsDto } from './dto/assign-lids.dto';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -25,6 +28,10 @@ import { User } from '../user/models/user.model';
 import * as XLSX from 'xlsx';
 import { ImportResultDto } from './dto/import-lids.dto';
 import { LidStatusLog } from './models/lid_status_log.model';
+import {
+  LidChildStatus,
+  Type,
+} from '../lid_child_statuses/models/lid_child_status.model';
 
 export interface KanbanColumn {
   status: { id: string; name: string; color: string; order: number };
@@ -51,6 +58,8 @@ export class LidsService {
     @InjectModel(LidValue) private lidValueModel: typeof LidValue,
     @InjectModel(LidColumn) private lidColumnModel: typeof LidColumn,
     @InjectModel(LidStatusLog) private lidStatusLogModel: typeof LidStatusLog,
+    @InjectModel(LidChildStatus)
+    private lidChildStatusModel: typeof LidChildStatus,
     private readonly lidStatusService: LidStatusService,
     private readonly sequelize: Sequelize,
   ) {}
@@ -349,6 +358,110 @@ export class LidsService {
     }
 
     return result;
+  }
+
+  async getLidFilterGet(
+    status_id: string,
+    type: Type,
+    assigned_id?: string,
+    searchTerm?: string,
+    pg?: number,
+    lmt?: number,
+  ) {
+    const limit = Math.min(Math.max(lmt ?? 20, 1), 100);
+    const page = Math.max(pg ?? 1, 1);
+    const offset = (page - 1) * limit;
+
+    const childStatuses = await this.lidChildStatusModel.findAll({
+      where: { status_id, type },
+      order: [['order', 'ASC']],
+    });
+
+    if (!childStatuses.length) {
+      return { data: [], total_count: 0, page, limit };
+    }
+
+    const lidWhere: WhereOptions = {};
+
+    if (assigned_id && assigned_id !== 'all') {
+      lidWhere.assigned_id = assigned_id;
+    }
+
+    if (searchTerm && searchTerm.trim() && searchTerm !== 'all') {
+      const searchVal = `%${searchTerm.trim()}%`;
+
+      const opOr: any = Op.or;
+
+      lidWhere[opOr] = [
+        { fio: { [Op.iLike]: searchVal } },
+        { telefon_raqam: { [Op.iLike]: searchVal } },
+      ];
+    }
+
+    const results = await Promise.all(
+      childStatuses.map(async (childStatus) => {
+        const { rows, count } = await this.lidModel.findAndCountAll({
+          where: { ...lidWhere, child_status_id: childStatus.id },
+          limit,
+          offset,
+          order: [['createdAt', 'DESC']],
+          distinct: true,
+          col: 'id',
+        });
+
+        return {
+          child_status: {
+            id: childStatus.id,
+            name: childStatus.name,
+            color: childStatus.color,
+            order: childStatus.order,
+            type: childStatus.type,
+          },
+          lids: rows,
+          total_count: count,
+          total_pages: Math.ceil(count / limit),
+          page,
+          limit,
+        };
+      }),
+    );
+
+    return {
+      data: results,
+      page,
+      limit,
+    };
+  }
+
+  async changeLidChildStatus(
+    id: string,
+    dto: ChangeLidChildStatusDto,
+    user: AuthUser,
+  ): Promise<Lid> {
+    const lid = await this.findOne(id, user);
+
+    const canAccessNew = await this.lidStatusService.canRoleAccess(
+      dto.child_status_id,
+      user.role,
+    );
+    if (!canAccessNew) {
+      throw new ForbiddenException(
+        "Siz bu statusga o'tkaza olmaysiz (ruxsat yo'q)",
+      );
+    }
+
+    return await lid.update({ child_status_id: dto.child_status_id });
+    // return this.sequelize.transaction(async (t) => {
+    // const oldChildStatusId = lid.child_status_id ?? null;
+    // await this.writeLog(
+    //   id,
+    //   oldChildStatusId,
+    //   dto.child_status_id,
+    //   user.id,
+    // t
+    // );
+    // return this.findOne(id, user);
+    // });
   }
 
   private extractField(row: ExcelRow, keys: string[]): string | null {
