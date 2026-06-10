@@ -14,7 +14,10 @@ import {
 } from './dto/create-lid_status.dto';
 import { UpdateLidStatusDto } from './dto/update-lid_status.dto';
 import { UserRole } from '../common/enums/user-role.enum';
-import { LidChildStatus, Type } from '../lid_child_statuses/models/lid_child_status.model';
+import {
+  LidChildStatus,
+  Type,
+} from '../lid_child_statuses/models/lid_child_status.model';
 
 @Injectable()
 export class LidStatusService {
@@ -232,5 +235,20 @@ export class LidStatusService {
       .replace(/["«»„""]/g, '')
       .trim()
       .toUpperCase();
+  }
+  async getKeldiKeladi() {
+    const allStatuses = await this.lidStatusModel.findAll({
+      where: {
+        name: {
+          [Op.in]: [
+            this.normalizeName('KELDI'),
+            this.normalizeName('KELADI'),
+            this.normalizeName('КЕЛДИ'),
+            this.normalizeName('КЕЛАДИ'),
+          ],
+        },
+      },
+    });
+    return allStatuses;
   }
 }
