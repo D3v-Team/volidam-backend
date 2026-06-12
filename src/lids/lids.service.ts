@@ -399,7 +399,10 @@ export class LidsService {
     const results = await Promise.all(
       childStatuses.map(async (childStatus) => {
         const { rows, count } = await this.lidModel.findAndCountAll({
-          where: lidWhere as WhereOptions,
+          where: {
+            ...lidWhere,
+            child_status_id: childStatus.id,
+          } as WhereOptions,
           include: this.defaultInclude,
           limit,
           offset,
