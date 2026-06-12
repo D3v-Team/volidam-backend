@@ -77,9 +77,11 @@ export class LidStatusService {
     return this.findOne(created.id);
   }
 
-  async findAll(
-    role?: UserRole,
-  ): Promise<(LidStatusAttr & { child_statuses_by_type: any })[]> {
+  async findAll(role?: UserRole): Promise<
+    (LidStatusAttr & {
+      child_statuses_by_type: Record<Type, LidChildStatus[]>;
+    })[]
+  > {
     const statuses = await this.lidStatusModel.findAll({
       where:
         role && role !== UserRole.SUPER_ADMIN
@@ -95,18 +97,21 @@ export class LidStatusService {
       const groupedByType = childStatuses.reduce(
         (acc, child) => {
           if (child.type === Type.TOQ || child.type === Type.JUFT) {
+            // cspell:disable-line
             if (!acc[child.type]) acc[child.type] = [];
             acc[child.type].push(child);
           }
           return acc;
         },
-        { [Type.TOQ]: [], [Type.JUFT]: [] } as Record<Type, LidChildStatus[]>,
+        { [Type.TOQ]: [], [Type.JUFT]: [] } as Record<Type, LidChildStatus[]>, // cspell:disable-line
       );
 
-      const { child_statuses, ...statusJson } = status.toJSON();
+      const statusJson = status.toJSON();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { child_statuses: _cs, ...rest } = statusJson;
 
       return {
-        ...statusJson,
+        ...rest,
         child_statuses_by_type: groupedByType,
       };
     });

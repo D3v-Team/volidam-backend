@@ -155,6 +155,7 @@ export class LidsService {
             status_color: status.color || '#888780',
             status_order: status.order || 0,
             is_default: status.is_default || false,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             child_statuses_by_type: status.child_statuses_by_type,
             total: count,
             data: rows,
@@ -378,21 +379,18 @@ export class LidsService {
     });
 
     if (!childStatuses.length) {
-      return { data: [], total_count: 0, page, limit };
+      return { data: [], page, limit };
     }
 
-    const lidWhere: WhereOptions = {};
+    const lidWhere: Record<string | symbol, any> = {};
 
     if (assigned_id && assigned_id !== 'all') {
-      lidWhere.assigned_id = assigned_id;
+      lidWhere['assigned_id'] = assigned_id;
     }
 
     if (searchTerm && searchTerm.trim() && searchTerm !== 'all') {
       const searchVal = `%${searchTerm.trim()}%`;
-
-      const opOr: any = Op.or;
-
-      lidWhere[opOr] = [
+      lidWhere[Op.or] = [
         { fio: { [Op.iLike]: searchVal } },
         { telefon_raqam: { [Op.iLike]: searchVal } },
       ];
@@ -401,13 +399,16 @@ export class LidsService {
     const results = await Promise.all(
       childStatuses.map(async (childStatus) => {
         const { rows, count } = await this.lidModel.findAndCountAll({
-          where: { ...lidWhere, child_status_id: childStatus.id },
+          where: lidWhere as WhereOptions,
+          include: this.defaultInclude,
           limit,
           offset,
           order: [['createdAt', 'DESC']],
           distinct: true,
           col: 'id',
         });
+
+        const total_pages = Math.ceil(count / limit);
 
         return {
           child_status: {
@@ -419,7 +420,8 @@ export class LidsService {
           },
           lids: rows,
           total_count: count,
-          total_pages: Math.ceil(count / limit),
+          total_pages,
+          has_next_page: page < total_pages,
           page,
           limit,
         };

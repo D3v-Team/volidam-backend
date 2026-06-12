@@ -9,6 +9,7 @@ export interface LidStatusAttr {
   color?: string;
   order?: number;
   is_default?: boolean;
+  child_statuses_by_type?: Record<string, LidChildStatus[]>;
 }
 
 @Table({ tableName: 'lid_statuses' })

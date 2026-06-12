@@ -138,7 +138,7 @@ export class LidsController {
   @Get('filter')
   @ApiOperation({ summary: 'Lidlarni filterli get qilish' })
   @ApiQuery({ name: 'status_id', required: true, type: String })
-  @ApiQuery({ name: 'type', required: true, description: 'Toq yoki Juft' })
+  @ApiQuery({ name: 'type', required: true, description: 'LEAD | STUDENT ...' })
   @ApiQuery({ name: 'assigned_id', required: false, type: String })
   @ApiQuery({ name: 'searchTerm', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -148,8 +148,8 @@ export class LidsController {
     @Query('type') type: Type,
     @Query('assigned_id') assigned_id?: string,
     @Query('searchTerm') searchTerm?: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
     return this.lidsService.getLidFilterGet(
       status_id,
