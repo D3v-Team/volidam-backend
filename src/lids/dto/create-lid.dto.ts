@@ -18,7 +18,7 @@ export class CreateLidDto {
 
   @ApiProperty({ example: '+998901234567' })
   @IsString()
-  @IsPhoneNumber('UZ', { message: "telefon_raqam noto'g'ri formatda" })
+  // @IsPhoneNumber('UZ', { message: "telefon_raqam noto'g'ri formatda" })
   @IsNotEmpty({ message: "telefon_raqam bo'sh bo'lmasligi kerak" })
   // @Matches(/^\+?[0-9]{9,15}$/, { message: "telefon_raqam noto'g'ri formatda" })
   telefon_raqam: string;
