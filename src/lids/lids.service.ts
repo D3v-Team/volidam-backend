@@ -176,24 +176,43 @@ export class LidsService {
     assignedId: string,
     page: number,
     limit: number,
-  ): Promise<PaginatedLids> {
+  ) {
     const offset = (page - 1) * limit;
-    const { rows, count } = await this.lidModel.findAndCountAll({
-      where: { assigned_id: assignedId },
-      include: this.defaultInclude,
-      limit,
-      offset,
-      order: [['createdAt', 'DESC']],
-      distinct: true,
-    });
 
-    return {
-      total: count,
-      page,
-      limit,
-      total_pages: Math.ceil(count / limit),
-      items: rows,
-    };
+    const statuses = await this.lidStatusService.findAll();
+    const results = await Promise.all(
+      statuses.map(async (status) => {
+        const { rows, count } = await this.lidModel.findAndCountAll({
+          where: {
+            assigned_id: assignedId,
+            status_id: status.id,
+          },
+          include: this.defaultInclude,
+          limit,
+          offset,
+          order: [['createdAt', 'DESC']],
+          distinct: true,
+          col: 'id',
+        });
+
+        return {
+          status: {
+            id: status.id,
+            name: status.name,
+            color: status.color,
+            order: status.order,
+          },
+          items: rows,
+          total: count,
+          total_pages: Math.ceil(count / limit),
+          has_next_page: page < Math.ceil(count / limit),
+          page,
+          limit,
+        };
+      }),
+    );
+
+    return { data: results, page, limit };
   }
 
   async findOne(id: string, user: AuthUser): Promise<Lid> {
