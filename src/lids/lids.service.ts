@@ -69,6 +69,10 @@ export class LidsService {
     { model: LidValue, include: [LidColumn] },
     { model: User, as: 'creator', attributes: ['id', 'full_name'] },
     { model: User, as: 'assignee', attributes: ['id', 'full_name'] },
+    {
+      model: LidChildStatus,
+      attributes: ['id', 'name', 'type'],
+    },
   ];
 
   private async writeLog(

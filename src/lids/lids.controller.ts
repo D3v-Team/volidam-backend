@@ -138,7 +138,7 @@ export class LidsController {
   @Get('filter')
   @ApiOperation({ summary: 'Lidlarni filterli get qilish' })
   @ApiQuery({ name: 'status_id', required: true, type: String })
-  @ApiQuery({ name: 'type', required: true, description: 'LEAD | STUDENT ...' })
+  @ApiQuery({ name: 'type', required: true, enum: Type })
   @ApiQuery({ name: 'assigned_id', required: false, type: String })
   @ApiQuery({ name: 'searchTerm', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
