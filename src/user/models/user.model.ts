@@ -6,7 +6,7 @@ interface UserAttr {
   username: string;
   hashed_password: string;
   hashed_refresh_token?: string | null;
-  refresh_token_jti?: string | null;
+  // refresh_token_jti?: string | null;
   role: UserRole;
 }
 
@@ -44,11 +44,11 @@ export class User extends Model<User, UserAttr> {
   })
   declare hashed_refresh_token?: string | null;
 
-  @Column({
-    type: DataType.STRING,
-    allowNull: true,
-  })
-  declare refresh_token_jti?: string | null;
+  // @Column({
+  //   type: DataType.STRING,
+  //   allowNull: true,
+  // })
+  // declare refresh_token_jti?: string | null;
 
   @Column({
     type: DataType.ENUM(...Object.values(UserRole)),
