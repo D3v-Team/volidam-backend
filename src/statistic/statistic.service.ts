@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { fn, col, literal, Op } from 'sequelize';
+import { fn, col, literal, Op, IncludeOptions } from 'sequelize';
 import { Lid } from '../lids/models/lid.model';
 import { LidStatus } from '../lid_statuses/models/lid_status.model';
 import { LidStatusLog } from '../lids/models/lid_status_log.model';
@@ -71,12 +71,28 @@ export class StatisticService {
     };
   }
 
-  async getLeadsByDateRange(startDate: string, endDate: string) {
+  async getLeadsByDateRange(
+    startDate: string,
+    endDate: string,
+    assigneeId?: string,
+  ) {
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
+
+    let include: IncludeOptions[] = [];
+    if (assigneeId) {
+      include = [
+        {
+          model: Lid,
+          attributes: [],
+          required: true,
+          where: { assigned_id: assigneeId },
+        },
+      ];
+    }
 
     const logs = (await this.lidStatusLogModel.findAll({
       attributes: [
@@ -87,6 +103,7 @@ export class StatisticService {
       where: {
         createdAt: { [Op.between]: [start, end] },
       },
+      include,
       group: ['lid_id'],
       raw: true,
     })) as unknown as { lid_id: string; last_changed_at: string }[];

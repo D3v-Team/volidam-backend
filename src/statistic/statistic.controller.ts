@@ -52,7 +52,7 @@ export class StatisticController {
 
   @Get('by-range')
   @ApiOperation({
-    summary: "Sana oralig'ida harakatlanган lidlarning oxirgi statusi",
+    summary: "Sana oralig'ida harakatlangan lidlarning oxirgi statusi",
     description:
       "startDate va endDate oralig'ida log yozilgan lidlarning " +
       "o'sha range ichidagi eng oxirgi statusini guruhlaydi",
@@ -71,11 +71,21 @@ export class StatisticController {
     example: '2026-05-30',
     description: 'YYYY-MM-DD',
   })
+  @ApiQuery({
+    name: 'assigneeId',
+    required: false,
+    type: String,
+  })
   getLeadsByDateRange(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
+    @Query('assigneeId') assigneeId?: string,
   ) {
-    return this.statisticService.getLeadsByDateRange(startDate, endDate);
+    return this.statisticService.getLeadsByDateRange(
+      startDate,
+      endDate,
+      assigneeId,
+    );
   }
 
   @Get('monthly')
