@@ -257,3 +257,11 @@ export class LidStatusService {
     return allStatuses;
   }
 }
+
+export function normalizeName(name: string): string {
+  return name
+    .replace(/[‘’`´]/g, "'")
+    .replace(/["«»„""]/g, '')
+    .trim()
+    .toUpperCase();
+}
