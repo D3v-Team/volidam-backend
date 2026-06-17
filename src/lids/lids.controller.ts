@@ -119,17 +119,20 @@ export class LidsController {
     description:
       "assigned_id berilsa — paginated list. Bo'sh bo'lsa — kanban (har statusdan limit ta).",
   })
+  @ApiQuery({ name: 'searchTerm', required: false, type: String })
   @ApiQuery({ name: 'assigned_id', required: false, type: String })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   findAll(
     @CurrentUser() user: AuthUser,
     @Query('assigned_id') assigned_id?: string,
+    @Query('searchTerm') searchTerm?: string,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
   ) {
     return this.lidsService.findAll(user, {
       assigned_id,
+      searchTerm,
       limit: limit!,
       page: page!,
     });
@@ -138,14 +141,18 @@ export class LidsController {
   @Get('filter')
   @ApiOperation({ summary: 'Lidlarni filterli get qilish' })
   @ApiQuery({ name: 'status_id', required: true, type: String })
-  @ApiQuery({ name: 'type', required: true, enum: Type })
+  @ApiQuery({
+    name: 'type',
+    required: true,
+    enum: [...Object.values(Type), 'all'],
+  })
   @ApiQuery({ name: 'assigned_id', required: false, type: String })
   @ApiQuery({ name: 'searchTerm', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   getLidFilterGet(
     @Query('status_id') status_id: string,
-    @Query('type') type: Type,
+    @Query('type') type: Type | 'all',
     @Query('assigned_id') assigned_id?: string,
     @Query('searchTerm') searchTerm?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,

@@ -14,7 +14,10 @@ import {
   LidStatus,
   LidStatusAttr,
 } from '../lid_statuses/models/lid_status.model';
-import { LidStatusService } from '../lid_statuses/lid_statuses.service';
+import {
+  LidStatusService,
+  normalizeName,
+} from '../lid_statuses/lid_statuses.service';
 import { CreateLidDto } from './dto/create-lid.dto';
 import { UpdateLidDto, LidValueInputDto } from './dto/update-lid.dto';
 import {
@@ -123,13 +126,24 @@ export class LidsService {
 
   async findAll(
     user: AuthUser,
-    options: { assigned_id?: string; limit: number; page: number },
+    options: {
+      assigned_id?: string;
+      searchTerm?: string;
+      limit: number;
+      page: number;
+    },
   ): Promise<any> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const page = Math.max(options.page ?? 1, 1);
 
-    if (options.assigned_id) {
-      return this.findByAssignee(user, options.assigned_id, page, limit);
+    if (options.assigned_id || options.searchTerm) {
+      return this.findByAssignee(
+        user,
+        options.assigned_id,
+        options.searchTerm,
+        page,
+        limit,
+      );
     }
     return this.findKanban(user, page, limit);
   }
@@ -177,18 +191,29 @@ export class LidsService {
 
   async findByAssignee(
     user: AuthUser,
-    assignedId: string,
+    assignedId: string | undefined,
+    searchTerm: string | undefined,
     page: number,
     limit: number,
   ) {
     const offset = (page - 1) * limit;
 
     const statuses = await this.lidStatusService.findAll();
+    const where: WhereOptions<Lid> = {};
+    if (assignedId) {
+      where.assigned_id = assignedId;
+    }
+    if (searchTerm) {
+      where[Op.or] = [
+        { fio: { [Op.iLike]: `%${normalizeName(searchTerm)}%` } },
+        { telefon_raqam: { [Op.iLike]: `%${searchTerm}%` } },
+      ];
+    }
     const results = await Promise.all(
       statuses.map(async (status) => {
         const { rows, count } = await this.lidModel.findAndCountAll({
           where: {
-            assigned_id: assignedId,
+            ...where,
             status_id: status.id,
           },
           include: this.defaultInclude,
@@ -386,7 +411,7 @@ export class LidsService {
 
   async getLidFilterGet(
     status_id: string,
-    type: Type,
+    type: Type | 'all',
     assigned_id?: string,
     searchTerm?: string,
     pg?: number,
@@ -395,9 +420,15 @@ export class LidsService {
     const limit = Math.min(Math.max(lmt ?? 20, 1), 100);
     const page = Math.max(pg ?? 1, 1);
     const offset = (page - 1) * limit;
-
+    const where: WhereOptions<LidChildStatus> = {};
+    if (type === 'all') {
+      where.status_id = status_id;
+    } else {
+      where.status_id = status_id;
+      where.type = type;
+    }
     const childStatuses = await this.lidChildStatusModel.findAll({
-      where: { status_id, type },
+      where,
       order: [['order', 'ASC']],
     });
 
